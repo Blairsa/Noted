@@ -3,17 +3,18 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// Firebase console > Project settings > General > Your apps > SDK setup and config
-// Paste your project's values in here. This file is safe to commit — these are
-// public client identifiers, not secrets. Access control lives in firestore.rules
-// and storage.rules, not in these values.
+//  https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyAYNctAtaSTJd4LxDkKiAob177502LtdRE",
+  authDomain: "noted-6942e.firebaseapp.com",
+  projectId: "noted-6942e",
+  storageBucket: "noted-6942e.firebasestorage.app",
+  messagingSenderId: "819721579810",
+  appId: "1:819721579810:web:5fcafe89730c785c90c97b",
+  measurementId: "G-QRZJDD9M5D"
 };
 
 export const app = initializeApp(firebaseConfig);
