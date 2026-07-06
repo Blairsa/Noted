@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myLinkedPersonId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.linkedPersonId;
+    }
+
+    // --- users ------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid; // e.g. changing your colour
+
+      match /personPrefs/{personId} {
+        allow read, write: if signedIn() && request.auth.uid == uid;
+      }
+      match /groupPrefs/{groupId} {
+        allow read, write: if signedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // --- people -------------------------------------------------------------
+    match /people/{personId} {
+      allow read: if signedIn();
+      allow write: if signedIn(); // both household members manage the same person list
+
+      match /giftIdeas/{ideaId} {
+        // Self-block: if this is YOUR linked person, you may only read/write
+        // gift ideas you added yourself. See src/hooks/usePerson.js for why the
+        // client must constrain the query to match this, not just rely on the rule.
+        allow read: if signedIn() &&
+          (personId != myLinkedPersonId() || resource.data.addedByUid == request.auth.uid);
+        allow create: if signedIn() && request.resource.data.addedByUid == request.auth.uid;
+        allow update, delete: if signedIn() && resource.data.addedByUid == request.auth.uid;
+      }
+
+      match /pastGifts/{giftId} {
+        allow read: if signedIn(); // not self-blocked - see spec §3, deliberate choice
+        allow create: if signedIn();
+        allow update, delete: if signedIn() && resource.data.addedByUid == request.auth.uid;
+      }
+
+      match /events/{eventId} {
+        // visibility: "creator" events are hidden from everyone but their author
+        allow read: if signedIn() &&
+          (resource.data.visibility != "creator" || resource.data.addedByUid == request.auth.uid);
+        allow create: if signedIn() && request.resource.data.addedByUid == request.auth.uid;
+        allow update, delete: if signedIn() && resource.data.addedByUid == request.auth.uid;
+      }
+
+      match /answers/{questionId} {
+        allow read, write: if signedIn();
+      }
+    }
+
+    // --- shared question bank ------------------------------------------------
+    match /questions/{questionId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if false; // questions are additive only, edit via delete+recreate if truly needed
+    }
+
+    // --- groups ---------------------------------------------------------------
+    match /groups/{groupId} {
+      allow read, write: if signedIn();
+
+      match /giftIdeas/{ideaId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.addedByUid == request.auth.uid;
+        allow update, delete: if signedIn() && resource.data.addedByUid == request.auth.uid;
+      }
+      match /events/{eventId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.addedByUid == request.auth.uid;
+        allow update, delete: if signedIn() && resource.data.addedByUid == request.auth.uid;
+      }
+    }
+
+    // --- occasions (birthday-{year} / christmas-{year} docs) ------------------
+    match /occasions/{entityId}/{doc} {
+      allow read, write: if signedIn();
+    }
+
+    // --- calendar sync review queue --------------------------------------------
+    match /syncReview/{reviewId} {
+      allow read, write: if signedIn();
+    }
+  }
+}
