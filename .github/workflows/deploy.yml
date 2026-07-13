@@ -9,11 +9,30 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
+
+      # --- Build and deploy the frontend (Hosting) ---
       - run: npm install
       - run: npm run build
+
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: noted-6942e
           channelId: live
+
+      # --- Install Cloud Functions dependencies ---
+      - name: Install functions dependencies
+        run: npm install
+        working-directory: ./functions
+
+      # --- Deploy Firestore rules + Cloud Functions ---
+      # action-hosting-deploy above only touches Hosting, so this step
+      # covers the rest using the Firebase CLI directly, authenticated
+      # with the same service account secret.
+      - name: Deploy Firestore rules and Functions
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/firebase-service-account.json
+          npx firebase-tools deploy --only firestore:rules,functions --project noted-6942e
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /home/runner/firebase-service-account.json
