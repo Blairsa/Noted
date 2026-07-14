@@ -4,7 +4,7 @@ import { formatAgeAndDob } from "../utils/date";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-export default function Home({ onOpenPerson, onOpenQuickAdd }) {
+export default function Home({ onOpenPerson, onOpenQuickAdd, onOpenSettings }) {
   const { people, loading } = usePeople();
   const soon = birthdaysThisMonth(people);
   const [search, setSearch] = useState("");
@@ -34,10 +34,20 @@ export default function Home({ onOpenPerson, onOpenQuickAdd }) {
 
   return (
     <div className="page">
-      <span className="mono" style={{
-        display: "inline-block", background: "var(--ink)", color: "#fff",
-        padding: "4px 16px 6px", borderRadius: "0 0 6px 6px", marginBottom: 18,
-      }}>Noted</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <span className="mono" style={{
+          display: "inline-block", background: "var(--ink)", color: "#fff",
+          padding: "4px 16px 6px", borderRadius: "0 0 6px 6px", marginBottom: 18,
+        }}>Noted</span>
+        <button
+          onClick={onOpenSettings}
+          className="mono"
+          title="Settings"
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--ink-soft)" }}
+        >
+          ⚙︎
+        </button>
+      </div>
 
       <input
         type="text"
