@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import Home from "./pages/Home";
 import PersonPage from "./pages/PersonPage";
+import CouplePage from "./pages/CouplePage";
 import Settings from "./pages/Settings";
 import QuickAdd from "./components/QuickAdd";
 
 export default function App() {
   const { user, profile, loading, login, logout } = useAuth();
   const [openPersonId, setOpenPersonId] = useState(null);
+  const [openCoupleId, setOpenCoupleId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
@@ -24,10 +26,27 @@ export default function App() {
     );
   }
 
+  function openPerson(id) {
+    setOpenCoupleId(null);
+    setOpenPersonId(id);
+  }
+  function openCouple(id) {
+    setOpenPersonId(null);
+    setOpenCoupleId(id);
+  }
+
   return (
     <>
       {settingsOpen ? (
         <Settings onBack={() => setSettingsOpen(false)} />
+      ) : openCoupleId ? (
+        <CouplePage
+          coupleId={openCoupleId}
+          currentUid={user.uid}
+          myColour={profile?.colour}
+          onBack={() => setOpenCoupleId(null)}
+          onOpenPerson={openPerson}
+        />
       ) : openPersonId ? (
         <PersonPage
           personId={openPersonId}
@@ -35,10 +54,13 @@ export default function App() {
           myLinkedPersonId={profile?.linkedPersonId}
           myColour={profile?.colour}
           onBack={() => setOpenPersonId(null)}
+          onOpenPerson={openPerson}
+          onOpenCouple={openCouple}
         />
       ) : (
         <Home
-          onOpenPerson={setOpenPersonId}
+          onOpenPerson={openPerson}
+          onOpenCouple={openCouple}
           onOpenQuickAdd={() => setQuickAddOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
