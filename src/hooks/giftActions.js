@@ -7,7 +7,12 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 
 // --- gift ideas ---------------------------------------------------------
 
-export async function addGiftIdea({ personId, title, addedByUid, photoFile }) {
+// price/description/link are optional - default to null rather than leaving
+// them undefined, since Firestore rejects writes with undefined fields.
+export async function addGiftIdea({
+  personId, title, addedByUid, photoFile,
+  price = null, description = null, link = null,
+}) {
   let photoPath = null;
   if (photoFile) {
     photoPath = `people/${personId}/giftIdeas/${crypto.randomUUID()}.webp`;
@@ -16,6 +21,7 @@ export async function addGiftIdea({ personId, title, addedByUid, photoFile }) {
   }
   await addDoc(collection(db, "people", personId, "giftIdeas"), {
     title, addedByUid, photoPath, status: "idea", createdAt: serverTimestamp(),
+    price, description, link,
   });
 }
 
@@ -56,6 +62,14 @@ export async function deleteGiftIdea({ personId, ideaId, photoPath }) {
   if (photoPath) {
     try { await deleteObject(ref(storage, photoPath)); } catch { /* already gone */ }
   }
+}
+
+// --- events --------------------------------------------------------------
+
+export async function addEvent({ personId, title, date, createdByUid }) {
+  await addDoc(collection(db, "people", personId, "events"), {
+    title, date: date || null, createdByUid, createdAt: serverTimestamp(),
+  });
 }
 
 // --- shared Q&A question bank ------------------------------------------
