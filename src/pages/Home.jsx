@@ -1,12 +1,29 @@
 import React, { useMemo, useRef, useState } from "react";
 import { usePeople, birthdaysThisMonth } from "../hooks/usePeople";
-import { formatAgeAndDob } from "../utils/date";
+import { useCouples, anniversariesThisMonth } from "../hooks/useCouples";
+import { formatAgeAndDob, formatDob } from "../utils/date";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-export default function Home({ onOpenPerson, onOpenQuickAdd, onOpenSettings }) {
+export default function Home({ onOpenPerson, onOpenQuickAdd, onOpenSettings, onOpenCouple }) {
   const { people, loading } = usePeople();
+  const { couples } = useCouples();
   const soon = birthdaysThisMonth(people);
+
+  const peopleById = useMemo(() => {
+    const map = {};
+    people.forEach((p) => (map[p.id] = p));
+    return map;
+  }, [people]);
+  const anniversaries = anniversariesThisMonth(couples, peopleById);
+
+  // Merge birthdays + anniversaries into one strip, sorted by daysAway,
+  // pinned entries (of either kind) leading regardless.
+  const strip = [...soon, ...anniversaries].sort((a, b) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return a.daysAway - b.daysAway;
+  });
+
   const [search, setSearch] = useState("");
   const listRef = useRef(null);
 
@@ -58,29 +75,35 @@ export default function Home({ onOpenPerson, onOpenQuickAdd, onOpenSettings }) {
       />
 
       <h3 className="section-label" style={{ marginTop: 18 }}>This month</h3>
-      {soon.length === 0 && <p className="mono">Nothing coming up in the next few weeks.</p>}
-      {soon.length > 0 && (
+      {strip.length === 0 && <p className="mono">Nothing coming up in the next few weeks.</p>}
+      {strip.length > 0 && (
         <div className="birthday-strip">
-          {soon.map((p) => (
-            <div
-              key={p.id}
-              className="birthday-card"
-              onClick={() => onOpenPerson(p.id)}
-              style={p.pinned ? { borderColor: "var(--you)" } : undefined}
-            >
-              {p.pinned && <div className="birthday-card-pin mono">pinned</div>}
-              <div className="birthday-card-name">{p.name}</div>
-              <div className="mono" style={{ color: "var(--ink-soft)", marginTop: 2 }}>
-                {formatAgeAndDob(p.birthdate)}
+          {strip.map((item) => {
+            const isCouple = !!item.names;
+            return (
+              <div
+                key={item.id}
+                className="birthday-card"
+                onClick={() => (isCouple ? onOpenCouple(item.id) : onOpenPerson(item.id))}
+                style={item.pinned ? { borderColor: "var(--you)" } : undefined}
+              >
+                {item.pinned && <div className="birthday-card-pin mono">pinned</div>}
+                <div className="birthday-card-name">
+                  {isCouple ? item.names.join(" & ") : item.name}
+                </div>
+                <div className="mono" style={{ color: "var(--ink-soft)", marginTop: 2 }}>
+                  {isCouple ? formatDob(item.anniversaryDate) : formatAgeAndDob(item.birthdate)}
+                  {isCouple && " · anniversary"}
+                </div>
+                <div className="mono" style={{
+                  marginTop: 6, fontWeight: 700,
+                  color: item.pinned ? "var(--you)" : item.daysAway <= 7 ? "var(--soon)" : "var(--later)",
+                }}>
+                  {item.pinned ? "always here" : item.daysAway === 0 ? "today" : `in ${item.daysAway} days`}
+                </div>
               </div>
-              <div className="mono" style={{
-                marginTop: 6, fontWeight: 700,
-                color: p.pinned ? "var(--you)" : p.daysAway <= 7 ? "var(--soon)" : "var(--later)",
-              }}>
-                {p.pinned ? "always here" : p.daysAway === 0 ? "today" : `in ${p.daysAway} days`}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
