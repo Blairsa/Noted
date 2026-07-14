@@ -2,15 +2,16 @@ import React, { useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import Home from "./pages/Home";
 import PersonPage from "./pages/PersonPage";
+import Settings from "./pages/Settings";
 import QuickAdd from "./components/QuickAdd";
 
 export default function App() {
   const { user, profile, loading, login, logout } = useAuth();
   const [openPersonId, setOpenPersonId] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   if (loading) return <div className="page">Loading…</div>;
-
   if (!user) {
     return (
       <div className="page" style={{ textAlign: "center", paddingTop: 100 }}>
@@ -25,7 +26,9 @@ export default function App() {
 
   return (
     <>
-      {openPersonId ? (
+      {settingsOpen ? (
+        <Settings onBack={() => setSettingsOpen(false)} />
+      ) : openPersonId ? (
         <PersonPage
           personId={openPersonId}
           currentUid={user.uid}
@@ -37,13 +40,12 @@ export default function App() {
         <Home
           onOpenPerson={setOpenPersonId}
           onOpenQuickAdd={() => setQuickAddOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       )}
-
       {quickAddOpen && (
         <QuickAdd currentUid={user.uid} onClose={() => setQuickAddOpen(false)} />
       )}
-
       <button onClick={logout} className="mono" style={{
         position: "fixed", top: 10, right: 10, background: "none", border: "none",
         color: "var(--ink-soft)", cursor: "pointer",
