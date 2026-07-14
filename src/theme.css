@@ -226,3 +226,106 @@ h2.note-title {
   background: var(--paper-edge);
   cursor: default;
 }
+/* --- Append to theme.css, on top of the previous batch --- */
+
+.dropdown-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+@media (max-width: 480px) {
+  .dropdown-row { grid-template-columns: 1fr; }
+}
+
+.dropdown-section {
+  background: var(--card-bg);
+  border: 1px solid var(--paper-edge);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.dropdown-section summary {
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.dropdown-section summary::-webkit-details-marker { display: none; }
+.dropdown-section summary::before {
+  content: "▸ ";
+  color: var(--ink-soft);
+}
+.dropdown-section[open] summary::before {
+  content: "▾ ";
+}
+
+.stacked-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.stacked-form input {
+  padding: 8px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 6px;
+}
+
+.stacked-form button {
+  align-self: flex-start;
+  background: var(--you);
+  color: #fff;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.stacked-form button:disabled {
+  background: var(--paper-edge);
+  cursor: default;
+}
+
+.idea-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--paper-edge);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0 18px;
+}
+
+.idea-form input, .idea-form textarea {
+  padding: 9px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 6px;
+  font-family: 'Work Sans', sans-serif;
+}
+
+.idea-form button {
+  background: var(--you);
+  color: #fff;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.idea-form button:disabled {
+  background: var(--paper-edge);
+  cursor: default;
+}
+
+.settings-placeholder {
+  background: var(--card-bg);
+  border: 1px dashed var(--paper-edge);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
