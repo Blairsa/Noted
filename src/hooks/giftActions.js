@@ -64,6 +64,63 @@ export async function deleteGiftIdea({ personId, ideaId, photoPath }) {
   }
 }
 
+// --- partners / couples ---------------------------------------------------
+// coupleId is deterministic (sorted personIds joined) so re-linking the same
+// two people never creates a duplicate couple doc.
+
+function makeCoupleId(personIdA, personIdB) {
+  return [personIdA, personIdB].sort().join("_");
+}
+
+export async function linkPartners({ personIdA, personIdB, anniversaryDate, married }) {
+  const coupleId = makeCoupleId(personIdA, personIdB);
+  await setDoc(doc(db, "couples", coupleId), {
+    personIds: [personIdA, personIdB],
+    anniversaryDate: anniversaryDate || null,
+    married: !!married,
+    createdAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, "people", personIdA), { partnerId: personIdB, coupleId });
+  await updateDoc(doc(db, "people", personIdB), { partnerId: personIdA, coupleId });
+  return coupleId;
+}
+
+export async function unlinkPartners({ personIdA, personIdB, coupleId }) {
+  await deleteDoc(doc(db, "couples", coupleId));
+  await updateDoc(doc(db, "people", personIdA), { partnerId: null, coupleId: null });
+  await updateDoc(doc(db, "people", personIdB), { partnerId: null, coupleId: null });
+}
+
+export async function addCoupleGiftIdea({
+  coupleId, title, addedByUid, photoFile,
+  price = null, description = null, link = null,
+}) {
+  let photoPath = null;
+  if (photoFile) {
+    photoPath = `couples/${coupleId}/giftIdeas/${crypto.randomUUID()}.webp`;
+    const compressed = await compressImage(photoFile);
+    await uploadBytes(ref(storage, photoPath), compressed);
+  }
+  await addDoc(collection(db, "couples", coupleId, "giftIdeas"), {
+    title, addedByUid, photoPath, status: "idea", createdAt: serverTimestamp(),
+    price, description, link,
+  });
+}
+
+export async function markCoupleGiftBought({ coupleId, ideaId, addedByUid, note, year }) {
+  await addDoc(collection(db, "couples", coupleId, "pastGifts"), {
+    year, note, addedByUid, originalIdeaId: ideaId,
+  });
+  await deleteDoc(doc(db, "couples", coupleId, "giftIdeas", ideaId));
+}
+
+export async function deleteCoupleGiftIdea({ coupleId, ideaId, photoPath }) {
+  await deleteDoc(doc(db, "couples", coupleId, "giftIdeas", ideaId));
+  if (photoPath) {
+    try { await deleteObject(ref(storage, photoPath)); } catch { /* already gone */ }
+  }
+}
+
 // --- events --------------------------------------------------------------
 
 export async function addEvent({ personId, title, date, createdByUid }) {
