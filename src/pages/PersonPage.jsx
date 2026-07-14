@@ -162,4 +162,4 @@ export default function PersonPage({ personId, currentUid, myLinkedPersonId, myC
       </details>
     </div>
   );
-      }
+}
