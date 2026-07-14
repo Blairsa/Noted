@@ -2,14 +2,42 @@ import React, { useEffect, useState } from "react";
 import { doc, updateDoc, arrayUnion, collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import { usePerson } from "../hooks/usePerson";
+import { usePeople } from "../hooks/usePeople";
 import {
   markGiftBought, deleteGiftIdea, addGiftIdea, addEvent,
-  addGlobalQuestion, setAnswer,
+  addGlobalQuestion, setAnswer, linkPartners,
 } from "../hooks/giftActions";
 import { formatAgeAndDob } from "../utils/date";
 
-export default function PersonPage({ personId, currentUid, myLinkedPersonId, myColour, onBack }) {
+export default function PersonPage({ personId, currentUid, myLinkedPersonId, myColour, onBack, onOpenPerson, onOpenCouple }) {
   const { person, giftIdeas, pastGifts, events, isOwnPerson } = usePerson(personId, currentUid, myLinkedPersonId);
+  const { people } = usePeople();
+
+  // --- partner name lookup (just need the name for the header) ---
+  const [partnerName, setPartnerName] = useState(null);
+  useEffect(() => {
+    if (!person?.partnerId) { setPartnerName(null); return; }
+    return onSnapshot(doc(db, "people", person.partnerId), (snap) => {
+      setPartnerName(snap.exists() ? snap.data().name : null);
+    });
+  }, [person?.partnerId]);
+
+  // --- partner search + link flow ---
+  const [linking, setLinking] = useState(false);
+  const [partnerSearch, setPartnerSearch] = useState("");
+  const [candidateId, setCandidateId] = useState(null);
+  const [annivDate, setAnnivDate] = useState("");
+  const [married, setMarried] = useState(false);
+
+  const candidates = people.filter(
+    (p) => p.id !== personId && p.name.toLowerCase().includes(partnerSearch.trim().toLowerCase())
+  );
+
+  async function confirmLink() {
+    if (!candidateId) return;
+    await linkPartners({ personIdA: personId, personIdB: candidateId, anniversaryDate: annivDate, married });
+    setLinking(false); setPartnerSearch(""); setCandidateId(null); setAnnivDate(""); setMarried(false);
+  }
 
   // --- shared Q&A bank: global question list + this person's answers ---
   const [questions, setQuestions] = useState([]);
@@ -125,7 +153,52 @@ export default function PersonPage({ personId, currentUid, myLinkedPersonId, myC
         &larr; back to everyone
       </button>
 
-      <h1 className="name">{person.name}</h1>
+      <h1 className="name">
+        {person.name}
+        {" "}
+        {partnerName ? (
+          <>
+            <span className="mono" style={{ fontWeight: 400 }}>+</span>{" "}
+            <button className="tag-item" style={{ fontStyle: "italic", fontSize: "inherit" }} onClick={() => onOpenPerson(person.partnerId)}>
+              {partnerName}
+            </button>
+            {" "}
+            <button className="mono" style={{ fontSize: 13 }} onClick={() => onOpenCouple(person.coupleId)}>couple view</button>
+          </>
+        ) : (
+          <button className="mono" style={{ fontSize: 14 }} onClick={() => setLinking((v) => !v)}>+ Partner?</button>
+        )}
+      </h1>
+
+      {linking && (
+        <div className="idea-form" style={{ marginBottom: 16 }}>
+          <input
+            placeholder="Search for their name…" value={partnerSearch}
+            onChange={(e) => { setPartnerSearch(e.target.value); setCandidateId(null); }}
+          />
+          {partnerSearch && !candidateId && (
+            <div style={{ maxHeight: 160, overflowY: "auto" }}>
+              {candidates.slice(0, 8).map((c) => (
+                <div key={c.id} className="mono" style={{ padding: "6px 2px", cursor: "pointer" }} onClick={() => { setCandidateId(c.id); setPartnerSearch(c.name); }}>
+                  {c.name}
+                </div>
+              ))}
+              {candidates.length === 0 && <div className="mono">No one matches.</div>}
+            </div>
+          )}
+          {candidateId && (
+            <>
+              <label className="mono">Anniversary date (optional)</label>
+              <input type="date" value={annivDate} onChange={(e) => setAnnivDate(e.target.value)} />
+              <label className="mono">
+                <input type="checkbox" checked={married} onChange={(e) => setMarried(e.target.checked)} /> Married?
+              </label>
+              <button onClick={confirmLink}>Link as partner</button>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="subline">{formatAgeAndDob(person.birthdate)}</div>
       {isOwnPerson && (
         <p className="mono" style={{ color: "var(--soon)" }}>
