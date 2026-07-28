@@ -57,7 +57,9 @@ service cloud.firestore {
         allow read, write: if signedIn();
       }
     }
-
+match /couples/{coupleId} {
+  allow read, write: if signedIn();
+}
     // --- shared question bank ------------------------------------------------
     match /questions/{questionId} {
       allow read: if signedIn();
