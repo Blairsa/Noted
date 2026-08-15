@@ -9,9 +9,13 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 
 // price/description/link are optional - default to null rather than leaving
 // them undefined, since Firestore rejects writes with undefined fields.
+e// price/description/link/photoUrl are optional - default to null rather than
+// leaving them undefined, since Firestore rejects writes with undefined
+// fields. photoUrl is a scraped remote image URL (from "Share to Noted" link
+// unfurling) - separate from photoPath, which is an uploaded Storage file.
 export async function addGiftIdea({
   personId, title, addedByUid, photoFile,
-  price = null, description = null, link = null,
+  price = null, description = null, link = null, photoUrl = null,
 }) {
   let photoPath = null;
   if (photoFile) {
@@ -21,14 +25,17 @@ export async function addGiftIdea({
   }
   await addDoc(collection(db, "people", personId, "giftIdeas"), {
     title, addedByUid, photoPath, status: "idea", createdAt: serverTimestamp(),
-    price, description, link,
+    price, description, link, photoUrl,
   });
 }
 
 // Quick-add the same idea to several people at once. Photos are duplicated per
 // person (see spec §2E) rather than shared by path, so one person's "mark as
 // bought" cleanup can never delete a photo another person's card still needs.
-export async function quickAddToMany({ personIds, title, addedByUid, photoFile }) {
+export async function quickAddToMany({
+  personIds, title, addedByUid, photoFile,
+  price = null, description = null, link = null, photoUrl = null,
+}) {
   let compressed = null;
   if (photoFile) compressed = await compressImage(photoFile);
 
@@ -40,7 +47,10 @@ export async function quickAddToMany({ personIds, title, addedByUid, photoFile }
       await uploadBytes(ref(storage, photoPath), compressed); // duplicate upload, deliberate
     }
     const ideaRef = doc(collection(db, "people", personId, "giftIdeas"));
-    batch.set(ideaRef, { title, addedByUid, photoPath, status: "idea", createdAt: serverTimestamp() });
+    batch.set(ideaRef, {
+      title, addedByUid, photoPath, status: "idea", createdAt: serverTimestamp(),
+      price, description, link, photoUrl,
+    });
   }
   await batch.commit();
 }
@@ -93,7 +103,7 @@ export async function unlinkPartners({ personIdA, personIdB, coupleId }) {
 
 export async function addCoupleGiftIdea({
   coupleId, title, addedByUid, photoFile,
-  price = null, description = null, link = null,
+  price = null, description = null, link = null, photoUrl = null,
 }) {
   let photoPath = null;
   if (photoFile) {
@@ -103,7 +113,7 @@ export async function addCoupleGiftIdea({
   }
   await addDoc(collection(db, "couples", coupleId, "giftIdeas"), {
     title, addedByUid, photoPath, status: "idea", createdAt: serverTimestamp(),
-    price, description, link,
+    price, description, link, photoUrl,
   });
 }
 
