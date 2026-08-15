@@ -11,13 +11,11 @@
   ],
   "share_target": {
     "action": "/quick-add",
-    "method": "POST",
-    "enctype": "multipart/form-data",
+    "method": "GET",
     "params": {
       "title": "title",
       "text": "text",
-      "url": "url",
-      "files": [{ "name": "photo", "accept": ["image/*"] }]
+      "url": "url"
     }
   }
 }
