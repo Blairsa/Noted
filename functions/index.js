@@ -5,10 +5,78 @@ const { getStorage } = require("firebase-admin/storage");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { google } = require("googleapis");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 
 initializeApp();
 const db = getFirestore();
+// ---------------------------------------------------------------------------
+// unfurlShareUrl — called from QuickAdd when a link comes in via "Share to
+// Noted" (or is pasted manually). Fetches the page server-side (avoids
+// browser CORS) and reads whatever og:/twitter:/JSON-LD metadata the page
+// exposes for its own link previews. Best-effort: any field it can't find
+// just comes back null, and the client already has title+link from the share
+// itself regardless.
+// ---------------------------------------------------------------------------
+exports.unfurlShareUrl = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
 
+  const url = request.data?.url;
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new HttpsError("invalid-argument", "A valid http(s) url is required.");
+  }
+
+  const res = await fetch(url, {
+    headers: {
+      // Most sites only populate og:/JSON-LD product data for crawler-like
+      // requests (that's what makes iMessage/WhatsApp previews work) - a
+      // plain browser UA can get a stripped-down page on some sites.
+      "User-Agent": "Mozilla/5.0 (compatible; NotedLinkPreview/1.0)",
+    },
+    redirect: "follow",
+  });
+  if (!res.ok) throw new HttpsError("not-found", `Could not fetch that link (${res.status}).`);
+  const html = await res.text();
+
+  const title = metaTag(html, "og:title") || metaTag(html, "twitter:title") || titleTag(html);
+  const image = metaTag(html, "og:image") || metaTag(html, "twitter:image");
+  const price = metaTag(html, "product:price:amount") || metaTag(html, "og:price:amount") || priceFromJsonLd(html);
+
+  return { title: title || null, image: image || null, price: price || null };
+});
+
+function metaTag(html, prop) {
+  const patterns = [
+    new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, "i"),
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, "i"),
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) return decodeHtmlEntities(m[1]);
+  }
+  return null;
+}
+
+function titleTag(html) {
+  const m = html.match(/<title>([^<]+)<\/title>/i);
+  return m ? decodeHtmlEntities(m[1]) : null;
+}
+
+function priceFromJsonLd(html) {
+  const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  for (const [, block] of blocks) {
+    try {
+      const data = JSON.parse(block);
+      const node = Array.isArray(data) ? data.find((d) => d.offers) : data;
+      const amount = node?.offers?.price ?? node?.offers?.[0]?.price;
+      if (amount) return String(amount);
+    } catch { /* not valid JSON-LD, skip it */ }
+  }
+  return null;
+}
+
+function decodeHtmlEntities(str) {
+  return str.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
 // ---------------------------------------------------------------------------
 // monthlyReminders — fires 1st of every month. Pushes to each user who has
 // opted in (personPrefs/groupPrefs), not to everyone regardless of preference.
