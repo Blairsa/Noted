@@ -1,17 +1,24 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { httpsCallable } from "firebase/functions";
 import { usePeople } from "../hooks/usePeople";
 import { useCouples } from "../hooks/useCouples";
 import { quickAddToMany, addCoupleGiftIdea } from "../hooks/giftActions";
+import { functions } from "../firebase";
 
-export default function QuickAdd({ currentUid, onClose }) {
+export default function QuickAdd({ currentUid, onClose, sharedData }) {
   const { people } = usePeople();
   const { couples } = useCouples();
   const [selectedPeople, setSelectedPeople] = useState(new Set());
   const [selectedCouples, setSelectedCouples] = useState(new Set());
   const [title, setTitle] = useState("");
+  const [link, setLink] = useState("");
+  const [price, setPrice] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState(null);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [fetchingDetails, setFetchingDetails] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
   const peopleById = useMemo(() => {
     const map = {};
@@ -31,6 +38,37 @@ export default function QuickAdd({ currentUid, onClose }) {
   const filteredPeople = people.filter((p) => p.name.toLowerCase().includes(term));
   const filteredCouples = couplesWithNames.filter((c) => c.displayName.toLowerCase().includes(term));
 
+  // Arriving via "Share to Noted" (see App.jsx + manifest.json share_target).
+  // Pre-fill title/link straight away, then best-effort enrich with photo/
+  // price by unfurling the link server-side. If that fails, title+link from
+  // the share itself are already enough to save - see fetchDetails below.
+  useEffect(() => {
+    if (!sharedData) return;
+    if (sharedData.title) setTitle(sharedData.title);
+    if (sharedData.url) {
+      setLink(sharedData.url);
+      fetchDetails(sharedData.url, !sharedData.title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedData]);
+
+  async function fetchDetails(url, useTitleFromFetch) {
+    if (!url) return;
+    setFetchingDetails(true);
+    setFetchError(null);
+    try {
+      const unfurl = httpsCallable(functions, "unfurlShareUrl");
+      const { data } = await unfurl({ url });
+      if (useTitleFromFetch && data.title) setTitle(data.title);
+      if (data.image) setPhotoUrl(data.image);
+      if (data.price) setPrice(data.price);
+    } catch (err) {
+      setFetchError("Couldn't auto-fill from that link — add the details yourself.");
+    } finally {
+      setFetchingDetails(false);
+    }
+  }
+
   function togglePerson(id) {
     const next = new Set(selectedPeople);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -48,14 +86,19 @@ export default function QuickAdd({ currentUid, onClose }) {
     setSaving(true);
     try {
       const jobs = [];
+      const extra = {
+        link: link.trim() || null,
+        price: price.trim() || null,
+        photoUrl: photoUrl || null,
+      };
       if (selectedPeople.size > 0) {
         jobs.push(quickAddToMany({
-          personIds: Array.from(selectedPeople), title: title.trim(), addedByUid: currentUid, photoFile,
+          personIds: Array.from(selectedPeople), title: title.trim(), addedByUid: currentUid, photoFile, ...extra,
         }));
       }
       for (const coupleId of selectedCouples) {
         jobs.push(addCoupleGiftIdea({
-          coupleId, title: title.trim(), addedByUid: currentUid, photoFile,
+          coupleId, title: title.trim(), addedByUid: currentUid, photoFile, ...extra,
         }));
       }
       await Promise.all(jobs);
@@ -111,6 +154,36 @@ export default function QuickAdd({ currentUid, onClose }) {
           placeholder="e.g. that board game everyone was talking about"
           style={{ width: "100%", padding: 9 }}
         />
+
+        <label className="mono" style={{ display: "block", marginTop: 12 }}>Link (optional)</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="url" value={link} onChange={(e) => setLink(e.target.value)}
+            placeholder="paste or shared automatically"
+            style={{ flex: 1, padding: 9 }}
+          />
+          <button
+            type="button" onClick={() => fetchDetails(link, false)}
+            disabled={!link.trim() || fetchingDetails}
+            style={{ padding: "0 12px" }}
+          >
+            {fetchingDetails ? "…" : "✨ fetch"}
+          </button>
+        </div>
+        {fetchError && <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>{fetchError}</p>}
+        {photoUrl && (
+          <p className="mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+            Found a photo from the link (saved, not shown yet — display UI coming later).
+          </p>
+        )}
+
+        <label className="mono" style={{ display: "block", marginTop: 12 }}>Price (optional)</label>
+        <input
+          type="text" value={price} onChange={(e) => setPrice(e.target.value)}
+          placeholder="e.g. £24.99"
+          style={{ width: "100%", padding: 9 }}
+        />
+
         <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files[0])} style={{ marginTop: 12 }} />
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--ink-soft)" }}>Cancel</button>
