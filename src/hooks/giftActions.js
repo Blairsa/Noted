@@ -9,7 +9,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 
 // price/description/link are optional - default to null rather than leaving
 // them undefined, since Firestore rejects writes with undefined fields.
-e// price/description/link/photoUrl are optional - default to null rather than
+// price/description/link/photoUrl are optional - default to null rather than
 // leaving them undefined, since Firestore rejects writes with undefined
 // fields. photoUrl is a scraped remote image URL (from "Share to Noted" link
 // unfurling) - separate from photoPath, which is an uploaded Storage file.
